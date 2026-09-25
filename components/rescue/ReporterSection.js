@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Camera, Phone, ShieldCheck, UserRound } from 'lucide-react-native';
 import RescueContactActions from './RescueContactActions';
@@ -38,18 +38,37 @@ export default function ReporterSection({
 }) {
   const currentProgress = volunteerProgress || 'Assigned';
   const [requestingAssistance, setRequestingAssistance] = useState(false);
+  // Synchronous in-flight lock — prevents a second Alert from opening while one
+  // is already showing or while the API call is in flight. A ref is used (not
+  // state) so the guard is set synchronously before Alert.alert() returns,
+  // immune to stale-closure issues that would affect a plain boolean.
+  const assistanceInFlightRef = useRef(false);
 
   const handleRequestAssistance = () => {
+    // Block immediately — prevents rapid taps from opening multiple Alert dialogs,
+    // and prevents Android double-fire of the Alert confirm button.
+    if (assistanceInFlightRef.current || requestingAssistance) return;
+    if (!reportId) return;
+
+    assistanceInFlightRef.current = true;
+    setRequestingAssistance(true);
+
     Alert.alert(
       'Request Paid Volunteer Assistance',
       'Nearby approved paid volunteers will be notified and can choose to help with this rescue. Do you want to continue?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            // User cancelled — release the lock so they can try again later.
+            assistanceInFlightRef.current = false;
+            setRequestingAssistance(false);
+          },
+        },
         {
           text: 'Request Assistance',
           onPress: async () => {
-            if (!reportId) return;
-            setRequestingAssistance(true);
             try {
               await requestAssistance(reportId);
               Alert.alert('Assistance Requested', 'Nearby paid volunteers have been notified.');
@@ -59,12 +78,20 @@ export default function ReporterSection({
             } catch (err) {
               Alert.alert('Request Failed', err.message || 'Please try again.');
             } finally {
+              assistanceInFlightRef.current = false;
               setRequestingAssistance(false);
             }
           },
         },
       ],
-      { cancelable: true }
+      {
+        cancelable: true,
+        onDismiss: () => {
+          // Covers hardware back-button / tap-outside dismiss on Android.
+          assistanceInFlightRef.current = false;
+          setRequestingAssistance(false);
+        },
+      }
     );
   };
 

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Platform,
@@ -35,8 +36,20 @@ function normalizeReports(data) {
   return [];
 }
 
+// Initial per-tab pagination state — one entry per status tab.
+const INITIAL_PAGE_STATE = () => Object.fromEntries(FILTERS.map((f) => [f, 1]));
+const INITIAL_HAS_MORE_STATE = () => Object.fromEntries(FILTERS.map((f) => [f, true]));
+const INITIAL_LOADING_MORE_STATE = () => Object.fromEntries(FILTERS.map((f) => [f, false]));
+const INITIAL_REPORTS_STATE = () => Object.fromEntries(FILTERS.map((f) => [f, []]));
+
 export default function RescueFeedScreen() {
-  const [reports, setReports] = useState([]);
+  // Per-tab report lists: { pending: [], accepted: [], resolved: [] }
+  const [reportsByTab, setReportsByTab] = useState(INITIAL_REPORTS_STATE);
+  // Per-tab pagination state
+  const [tabPage, setTabPage]           = useState(INITIAL_PAGE_STATE);
+  const [tabHasMore, setTabHasMore]     = useState(INITIAL_HAS_MORE_STATE);
+  const [tabLoadingMore, setTabLoadingMore] = useState(INITIAL_LOADING_MORE_STATE);
+
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [currentFirebaseUser, setCurrentFirebaseUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +60,11 @@ export default function RescueFeedScreen() {
   const [radiusSheetVisible, setRadiusSheetVisible] = useState(false);
   const [userLocation, setUserLocation] = useState(null); // { latitude, longitude }
   const horizontalScrollRef = useRef(null);
+  // Synchronous in-flight lock for the claim action — prevents concurrent
+  // HTTP requests from rapid taps causing contradictory UI modal responses.
+  // A ref is used (not state) so the guard is set synchronously before the
+  // first await, immune to stale-closure issues.
+  const claimInFlightRef = useRef(false);
 
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [statusModalConfig, setStatusModalConfig] = useState({
@@ -101,7 +119,8 @@ export default function RescueFeedScreen() {
       }
 
       // Always fetch reports — guests see the feed too.
-      fetchReports();
+      // Load page 1 of all tabs in parallel on auth state resolve.
+      fetchAllTabsPage1();
     });
 
     return () => {
@@ -110,20 +129,56 @@ export default function RescueFeedScreen() {
     };
   }, []);
 
-  const fetchReports = async (isRefresh = false, radiusKm = activeRadius, location = userLocation) => {
+  // ── Core paginated fetch ──────────────────────────────────────────────────
+  // Fetches one page of reports for a specific status tab.
+  // pageNum=1 replaces the tab list; pageNum>1 appends (infinite scroll).
+  // All existing filters (radius, assistancePending, assistanceAcceptedBy)
+  // are preserved and forwarded to the backend.
+  const fetchReports = useCallback(async ({
+    pageNum      = 1,
+    statusFilter = activeFilter,
+    radiusKm     = activeRadius,
+    location     = userLocation,
+    isRefresh    = false,
+  } = {}) => {
+    const isFirstPage = pageNum === 1;
+
     try {
-      if (!isRefresh) setLoading(true);
-      let url = `${BACKEND_BASE_URL}/api/reports`;
+      if (isFirstPage && !isRefresh) setLoading(true);
+
+      // Build URL — status is now sent to the server so it filters at DB level.
+      const params = new URLSearchParams({
+        page:   String(pageNum),
+        limit:  '20',
+        status: statusFilter,
+      });
       if (radiusKm && location) {
-        url += `?lat=${location.latitude}&lng=${location.longitude}&radius=${radiusKm}`;
+        params.set('lat',    String(location.latitude));
+        params.set('lng',    String(location.longitude));
+        params.set('radius', String(radiusKm));
       }
+
       // Public endpoint — no auth required, works for guests and signed-in users.
-      const response = await fetchPublicWithTimeout(url);
+      const response = await fetchPublicWithTimeout(
+        `${BACKEND_BASE_URL}/api/reports?${params.toString()}`
+      );
       const data = await response.json();
-      setReports(normalizeReports(data).reverse());
+
+      // Backend returns { reports: [...], pagination: { hasMore, ... } }
+      // normalizeReports handles the old plain-array shape as a fallback.
+      const incoming  = normalizeReports(data);
+      const paginMeta = data?.pagination ?? null;
+      const more      = paginMeta != null ? paginMeta.hasMore : incoming.length === 20;
+
+      setReportsByTab((prev) => ({
+        ...prev,
+        [statusFilter]: isFirstPage ? incoming : [...prev[statusFilter], ...incoming],
+      }));
+      setTabPage((prev)    => ({ ...prev, [statusFilter]: pageNum }));
+      setTabHasMore((prev) => ({ ...prev, [statusFilter]: more }));
     } catch (error) {
       if (error instanceof UnauthenticatedError) {
-        // User logged out — this is expected, suppress the alert silently.
+        // User logged out — expected, suppress silently.
         return;
       }
       console.error('Failed to fetch rescue reports:', error);
@@ -147,10 +202,39 @@ export default function RescueFeedScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      // Clear loadingMore flag for this tab regardless of success/failure.
+      setTabLoadingMore((prev) => ({ ...prev, [statusFilter]: false }));
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter, activeRadius, userLocation]);
+
+  // Loads page 1 of every tab in parallel — used on initial mount and refresh.
+  const fetchAllTabsPage1 = useCallback((
+    radiusKm = activeRadius,
+    location = userLocation,
+    isRefresh = false,
+  ) => {
+    FILTERS.forEach((filter) => {
+      fetchReports({ pageNum: 1, statusFilter: filter, radiusKm, location, isRefresh });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchReports]);
+
+  // Loads the next page for a specific tab (called by onEndReached).
+  const fetchNextPage = useCallback((filter) => {
+    if (tabLoadingMore[filter] || !tabHasMore[filter]) return;
+    setTabLoadingMore((prev) => ({ ...prev, [filter]: true }));
+    fetchReports({
+      pageNum:      tabPage[filter] + 1,
+      statusFilter: filter,
+    });
+  }, [fetchReports, tabHasMore, tabLoadingMore, tabPage]);
 
   const handleAcceptReport = async (report) => {
+    // Block immediately — prevents rapid taps from firing multiple concurrent
+    // claim requests whose out-of-order responses produce contradictory modals.
+    if (claimInFlightRef.current) return;
+
     if (!currentFirebaseUser?.uid) {
       openStatusModal({
         type: 'warning',
@@ -160,6 +244,7 @@ export default function RescueFeedScreen() {
       return;
     }
 
+    claimInFlightRef.current = true;
     const rescueAlreadyClaimedMessage = 'Rescue already claimed by another volunteer.';
 
     try {
@@ -184,9 +269,13 @@ export default function RescueFeedScreen() {
         throw new Error(refreshedReport?.error || refreshedReport?.message || 'Failed to refresh rescue status');
       }
 
-      setReports((previousReports) =>
-        previousReports.map((item) => (item._id === refreshedReport._id ? refreshedReport : item))
-      );
+      setReportsByTab((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((tab) => {
+          next[tab] = next[tab].map((item) => (item._id === refreshedReport._id ? refreshedReport : item));
+        });
+        return next;
+      });
       if (selectedReport?._id === refreshedReport._id) setSelectedReport(refreshedReport);
 
       if (refreshedReport?.assignedVolunteer?.uid !== currentFirebaseUser.uid) {
@@ -210,49 +299,56 @@ export default function RescueFeedScreen() {
         title: 'Unable to accept',
         message: apiError.message,
       });
+    } finally {
+      // Release the lock — allows retry on error, and ensures state is always
+      // cleaned up even if the function returns early via an unhandled path.
+      claimInFlightRef.current = false;
     }
   };
 
   const currentUserCoordinates = currentUserProfile?.location?.coordinates;
   const currentUserIsVolunteer = Boolean(currentUserProfile?.isVolunteer);
 
-  const displayReports = useMemo(() => reports.map((report) => {
-    const distanceKm = calculateDistanceKm(currentUserCoordinates, report.location?.coordinates);
-    return { ...report, distanceKm, distanceLabel: formatDistanceLabel(distanceKm) };
-  }), [reports, currentUserCoordinates]);
-
-  const reportsByFilter = useMemo(() => {
-    const groups = { pending: [], accepted: [], resolved: [] };
-    displayReports.forEach((report) => {
-      const status = (report.status || 'pending').toLowerCase();
-      if (groups[status]) {
-        groups[status].push(report);
-      }
-    });
-
-    Object.keys(groups).forEach((key) => {
-      groups[key].sort((a, b) => {
-        return new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0);
+  // Augment each tab's reports with client-side distanceKm/distanceLabel.
+  // Server now handles status grouping; we only need the distance annotation.
+  const displayReportsByTab = useMemo(() => {
+    const result = {};
+    FILTERS.forEach((filter) => {
+      result[filter] = (reportsByTab[filter] || []).map((report) => {
+        const distanceKm = calculateDistanceKm(currentUserCoordinates, report.location?.coordinates);
+        return { ...report, distanceKm, distanceLabel: formatDistanceLabel(distanceKm) };
       });
     });
+    return result;
+  }, [reportsByTab, currentUserCoordinates]);
 
-    return groups;
-  }, [displayReports]);
-
-  const filteredReportsCount = useMemo(() => {
-    return (reportsByFilter[activeFilter] || []).length;
-  }, [reportsByFilter, activeFilter]);
+  // Count shown in the header — reflects the currently loaded page count for the active tab.
+  const filteredReportsCount = (displayReportsByTab[activeFilter] || []).length;
 
   const onRefresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    fetchReports(true, activeRadius, userLocation);
+    // Reset pagination counters so infinite scroll restarts from page 1.
+    // Do NOT clear reportsByTab — keep existing data visible during the fetch
+    // so the horizontal ScrollView never collapses and the filter bubbles
+    // never resize. The tab lists are replaced naturally when fetchReports
+    // returns page 1 (isFirstPage=true → setReportsByTab replaces, not appends).
+    setTabPage(INITIAL_PAGE_STATE());
+    setTabHasMore(INITIAL_HAS_MORE_STATE());
+    setTabLoadingMore(INITIAL_LOADING_MORE_STATE());
+    fetchAllTabsPage1(activeRadius, userLocation, true);
   };
 
   const handleRadiusChange = (value) => {
     setRadiusSheetVisible(false);
     setActiveRadius(value);
-    fetchReports(false, value, userLocation);
+    // Reset pagination counters only — keep existing data visible while the
+    // new radius-filtered fetch is in flight (same layout-stability reason
+    // as onRefresh above). Tab lists are replaced when page 1 arrives.
+    setTabPage(INITIAL_PAGE_STATE());
+    setTabHasMore(INITIAL_HAS_MORE_STATE());
+    setTabLoadingMore(INITIAL_LOADING_MORE_STATE());
+    fetchAllTabsPage1(value, userLocation);
   };
 
   const activeRadiusLabel = activeRadius == null
@@ -261,6 +357,8 @@ export default function RescueFeedScreen() {
 
   // ── Swipe ↔ Chip synchronization ──────────────────────────────────────────
   const handleFilterPress = (filter) => {
+    // Tab change does NOT reset reports — each tab maintains its own list.
+    // The tab's list is already loaded (all tabs load page 1 on mount/refresh).
     setActiveFilter(filter);
     const index = FILTERS.indexOf(filter);
     if (index !== -1) {
@@ -340,10 +438,12 @@ export default function RescueFeedScreen() {
         scrollEventThrottle={16}
       >
         {FILTERS.map((filter) => {
-          const list = reportsByFilter[filter] || [];
+          const list        = displayReportsByTab[filter] || [];
+          const isLoadMore  = tabLoadingMore[filter];
+          const canLoadMore = tabHasMore[filter];
           return (
             <View key={filter} style={{ width: SCREEN_WIDTH }}>
-              {list.length === 0 ? (
+              {list.length === 0 && !loading ? (
                 <View style={styles.emptyWrap}>
                   <EmptyState
                     title="No rescue alerts"
@@ -368,6 +468,19 @@ export default function RescueFeedScreen() {
                   maxToRenderPerBatch={8}
                   windowSize={5}
                   removeClippedSubviews={Platform.OS === 'android'}
+                  // ── Infinite scroll ──────────────────────────────────────
+                  onEndReachedThreshold={0.4}
+                  onEndReached={() => {
+                    if (!isLoadMore && canLoadMore) {
+                      fetchNextPage(filter);
+                    }
+                  }}
+                  ListFooterComponent={
+                    isLoadMore
+                      ? <ActivityIndicator size="small" color={colors.primary} style={styles.loadMoreIndicator} />
+                      : null
+                  }
+                  // ────────────────────────────────────────────────────────
                   renderItem={({ item: report }) => (
                     <RescueCard
                       report={report}
@@ -477,5 +590,8 @@ const styles = StyleSheet.create({
   },
   emptyWrap: {
     padding: spacing.lg,
+  },
+  loadMoreIndicator: {
+    paddingVertical: spacing.lg,
   },
 });
