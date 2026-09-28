@@ -260,6 +260,24 @@ export default function RescueFeedScreen() {
           title: 'Unable to accept',
           message: rescueAlreadyClaimedMessage,
         });
+        // ponytail: reconcile stale card — re-fetch the single report and
+        // merge into every tab's list, same as the success path below.
+        try {
+          const staleRefreshRes = await fetchWithTimeout(`${BACKEND_BASE_URL}/api/reports/${report._id}`);
+          const staleRefreshed = await staleRefreshRes.json();
+          if (staleRefreshRes.ok && staleRefreshed?._id) {
+            setReportsByTab((prev) => {
+              const next = { ...prev };
+              Object.keys(next).forEach((tab) => {
+                next[tab] = next[tab].map((item) =>
+                  item._id === staleRefreshed._id ? staleRefreshed : item
+                );
+              });
+              return next;
+            });
+            if (selectedReport?._id === staleRefreshed._id) setSelectedReport(staleRefreshed);
+          }
+        } catch (_) { /* best-effort, silent */ }
         return;
       }
 

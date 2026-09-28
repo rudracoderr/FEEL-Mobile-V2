@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { useNavigation } from '@react-navigation/native';
+import { Bell } from 'lucide-react-native';
 import { BACKEND_BASE_URL, fetchPublicWithTimeout } from '../../apiClient';
 import RescueCard from '../../components/RescueCard';
 import PaidVolunteerRescueDetailsModal from '../../components/paidVolunteer/PaidVolunteerRescueDetailsModal';
@@ -31,6 +33,7 @@ function normalizeReports(data) {
 }
 
 export default function NearbyReportsScreen({ currentUserProfile }) {
+  const navigation = useNavigation();
   const uid = currentUserProfile?.uid || null;
   const userCoordinates = currentUserProfile?.location?.coordinates || null; // [lng, lat]
 
@@ -183,8 +186,13 @@ export default function NearbyReportsScreen({ currentUserProfile }) {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Nearby Reports</Text>
-        <Text style={styles.subtitle}>{activeCount} report{activeCount !== 1 ? 's' : ''} in this view</Text>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.title} numberOfLines={1}>Nearby Reports</Text>
+          <Text style={styles.subtitle}>{activeCount} report{activeCount !== 1 ? 's' : ''} in this view</Text>
+        </View>
+        <TouchableOpacity style={styles.headerBellBtn} onPress={() => navigation.navigate('Notifications')} activeOpacity={0.82}>
+          <Bell size={20} color={colors.text} strokeWidth={2.2} />
+        </TouchableOpacity>
       </View>
 
       {/* Tab Chips */}
@@ -297,6 +305,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTextContainer: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  headerBellBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.title,

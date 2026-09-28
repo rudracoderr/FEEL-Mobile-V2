@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { MapPin } from 'lucide-react-native';
 import ReportImageGallery from '../../components/ReportImageGallery';
 import PaidVolunteerRescueDetailsModal from '../../components/paidVolunteer/PaidVolunteerRescueDetailsModal';
@@ -87,6 +87,8 @@ function MyCaseCard({ report, distanceLabel, isAssisting, onPress }) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function PaidVolunteerMyCasesScreen({ currentUserProfile }) {
+  const route = useRoute();
+  const navigation = useNavigation();
   const uid = currentUserProfile?.uid || null;
   const userCoordinates = currentUserProfile?.location?.coordinates || null;
 
@@ -109,6 +111,22 @@ export default function PaidVolunteerMyCasesScreen({ currentUserProfile }) {
       setError(null);
       const data = await fetchMyCases(uid);
       setCases(data);
+
+      // Handle deep link redirect
+      if (route.params?.autoOpenReportId) {
+        const targetReport = data.find(r => r._id === route.params.autoOpenReportId);
+        if (targetReport) {
+          setSelectedReport(targetReport);
+          
+          // Switch tab to completed if the case is done
+          const isCompleted = targetReport.status === 'resolved' || targetReport.assistance?.status === 'completed';
+          if (isCompleted) {
+            setActiveTab('completed');
+            horizontalScrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
+          }
+        }
+        navigation.setParams({ autoOpenReportId: undefined });
+      }
     } catch (err) {
       setError(err.message || 'Failed to load your cases.');
     } finally {
@@ -135,10 +153,22 @@ export default function PaidVolunteerMyCasesScreen({ currentUserProfile }) {
     loadCases(true);
   };
 
-  // Split into active / completed
+  // Split into active / completed.
+  //
+  // For directly-assigned PVs the report's own status is the source of truth.
+  // For assisting PVs the assistance.status is used as the decisive signal:
+  //   • assistance.status === 'completed'  → NGO accepted the transfer; the PV's
+  //     role is done even though report.status is still 'accepted' while the NGO
+  //     works the case.  Move it out of Active immediately.
+  //   • report.status === 'resolved'       → the whole case is closed (either by
+  //     the volunteer or by the NGO via close).
   const { activeCases, completedCases } = useMemo(() => ({
-    activeCases: cases.filter(r => r.status === 'accepted'),
-    completedCases: cases.filter(r => r.status === 'resolved'),
+    activeCases: cases.filter(
+      (r) => r.status === 'accepted' && r.assistance?.status !== 'completed',
+    ),
+    completedCases: cases.filter(
+      (r) => r.status === 'resolved' || r.assistance?.status === 'completed',
+    ),
   }), [cases]);
 
   // Determine if user is assisting (not directly assigned) for a given report

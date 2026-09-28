@@ -54,7 +54,7 @@ export default function ProfileSettings({ backendUser, navigation, onLogout }) {
         ) : null}
 
         <SettingsRow icon={UserRound} label="My Reports" onPress={() => navigation.navigate('MyReports')} />
-        <SettingsRow icon={Bell} label="Notifications" />
+        <SettingsRow icon={Bell} label="Notifications" onPress={() => navigation.navigate('Notifications')} />
         <SettingsRow icon={Lock} label="Privacy" />
         <SettingsRow icon={HelpCircle} label="Help" />
         <SettingsRow icon={Info} label="About FEEL" />

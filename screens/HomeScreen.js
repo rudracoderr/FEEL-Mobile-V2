@@ -442,7 +442,7 @@ export default function HomeScreen({ currentUserProfile, route }) {
         <HomeHeroBanner
           username={username}
           onDonationsPress={() => navigation.navigate('Donations')}
-          onBellPress={() => {}}
+          onBellPress={() => navigation.navigate('Notifications')}
         />
 
         <View style={styles.paddedContent}>

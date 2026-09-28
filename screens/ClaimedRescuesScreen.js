@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   Alert,
   Dimensions,
@@ -78,6 +79,8 @@ function ClaimedRescueCard({ report, distanceLabel, onPress }) {
 }
 
 export default function ClaimedRescuesScreen({ currentUserProfile }) {
+  const route = useRoute();
+  const navigation = useNavigation();
   const volunteerUid = currentUserProfile?.uid || null;
   const currentUserCoordinates = currentUserProfile?.location?.coordinates || null;
   const [reports, setReports] = useState([]);
@@ -102,7 +105,25 @@ export default function ClaimedRescuesScreen({ currentUserProfile }) {
       const response = await fetchWithTimeout(`${BACKEND_BASE_URL}/api/reports/claimed/${volunteerUid}`);
       const data = await response.json();
       if (!response.ok || !data?.success) throw new Error(data?.message || 'Failed to load claimed rescues');
-      setReports(Array.isArray(data.reports) ? data.reports : []);
+      
+      const fetchedReports = Array.isArray(data.reports) ? data.reports : [];
+      setReports(fetchedReports);
+
+      // Handle deep link redirect
+      if (route.params?.autoOpenReportId) {
+        const targetReport = fetchedReports.find(r => r._id === route.params.autoOpenReportId);
+        if (targetReport) {
+          setSelectedReport(targetReport);
+          // If it's a completed case, auto-switch the tab to 'completed'
+          if (targetReport.status === 'resolved') {
+            setActiveTab('completed');
+            horizontalScrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
+          }
+        }
+        // Consume the param so it doesn't trigger again on refresh
+        navigation.setParams({ autoOpenReportId: undefined });
+      }
+
     } catch (fetchError) {
       console.error('Failed to fetch claimed rescues:', fetchError);
       setError(fetchError.message || 'Failed to load claimed rescues');

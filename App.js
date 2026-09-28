@@ -26,6 +26,9 @@ import VolunteerApplicationScreen from './screens/VolunteerApplicationScreen';
 import AdoptScreen from './screens/AdoptScreen';
 import RehomeScreen from './screens/RehomeScreen';
 import PaidVolunteerTabNavigator from './navigation/PaidVolunteerTabNavigator';
+import NotificationScreen from './screens/NotificationScreen';
+import ReportDetailScreen from './screens/ReportDetailScreen';
+import { navigationRef, navigateWhenReady } from './navigationRef';
 
 import { auth } from './firebase';
 import { BACKEND_BASE_URL, fetchJsonWithTimeout } from './apiClient';
@@ -277,8 +280,13 @@ export default function App() {
   });
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const currentUserProfileRef = useRef(null);
   const pushTokenSyncInFlightRef = useRef(false);
   const lastSyncedTokenRef = useRef(null);
+
+  useEffect(() => {
+    currentUserProfileRef.current = currentUserProfile;
+  }, [currentUserProfile]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -397,6 +405,22 @@ export default function App() {
     };
   }, [firebaseUser?.uid, currentUserProfile?.uid]);
 
+  // ── Push notification tap handler ────────────────────────────────────────
+  // Handles foreground, background, and killed-app notification taps.
+  // Uses navigateWhenReady so it is safe even if the NavigationContainer
+  // isn't mounted yet (e.g., app opened from a killed state).
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response?.notification?.request?.content?.data;
+      const reportId = data?.reportId || data?.report_id || null;
+      
+      if (reportId && typeof reportId === 'string' && reportId.trim()) {
+        navigateWhenReady('ReportDetail', { reportId: reportId.trim() });
+      }
+    });
+    return () => subscription?.remove?.();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -419,7 +443,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         {authState.isLoading ? (
           // Blank splash while Firebase restores auth session
           <View style={styles.loadingScreen} />
@@ -529,6 +553,18 @@ export default function App() {
               name="RescueFeed"
               options={{ animation: 'slide_from_right' }}
               component={RescueFeedScreen}
+            />
+
+            <Stack.Screen
+              name="Notifications"
+              options={{ animation: 'slide_from_bottom' }}
+              component={NotificationScreen}
+            />
+
+            <Stack.Screen
+              name="ReportDetail"
+              options={{ animation: 'slide_from_bottom' }}
+              component={ReportDetailScreen}
             />
 
 

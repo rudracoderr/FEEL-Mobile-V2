@@ -73,6 +73,7 @@ export default function PaidVolunteerRescueDetailsModal({
   const [selectedNgo, setSelectedNgo] = useState(null);
   const [transferRemarks, setTransferRemarks] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [cancellingTransfer, setCancellingTransfer] = useState(false);
 
   // ── Hydrate when modal opens ──────────────────────────────────────────────
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function PaidVolunteerRescueDetailsModal({
   const assignedVolunteerPhone = displayReport?.assignedVolunteer?.phone || null;
   const assignedVolunteerName = displayReport?.assignedVolunteer?.fullName || 'Assigned Volunteer';
   const hasPhone = Boolean(assignedVolunteerPhone);
-  const isBusy = accepting || hydrating || updating || resolving || transferring;
+  const isBusy = accepting || hydrating || updating || resolving || transferring || cancellingTransfer;
 
   // Ownership determination for mycase mode
   const isDirectlyAssigned = displayReport?.assignedVolunteer?.uid === currentUserUid;
@@ -128,6 +129,56 @@ export default function PaidVolunteerRescueDetailsModal({
   const transferCompleted = transferStatus === 'completed';
 
   // ── Accept Rescue ─────────────────────────────────────────────────────────
+  // ponytail: shared silent re-fetch used by 409 reconciliation in both
+  // handleAccept and handleAcceptAssistance. Updates hydratedReport in-place.
+  const reconcileReport = async (id) => {
+    try {
+      const res = await fetchWithTimeout(`${BACKEND_BASE_URL}/api/reports/${id}`);
+      const fresh = await res.json();
+      if (res.ok && fresh?._id) setHydratedReport(fresh);
+    } catch (_) { /* best-effort, silent */ }
+  };
+
+  // ── Cancel Transfer ───────────────────────────────────────────────────────
+  const performCancelTransfer = async () => {
+    if (!displayReport?._id || cancellingTransfer) return;
+    setCancellingTransfer(true);
+    try {
+      await cancelTransfer(displayReport._id, 'pending');
+      
+      let updated = displayReport;
+      try {
+        const res = await fetchWithTimeout(`${BACKEND_BASE_URL}/api/reports/${displayReport._id}`);
+        const d = await res.json();
+        if (res.ok && d?._id) updated = d;
+      } catch (_) {}
+      
+      // Force local transferStatus update since projection might omit it
+      updated = { ...updated, transferStatus: 'none' };
+      setHydratedReport(updated);
+      
+      if (typeof onCaseUpdated === 'function') onCaseUpdated(updated);
+    } catch (error) {
+      if (error.message?.includes('no longer pending') || error.status === 409) {
+        reconcileReport(displayReport._id);
+      }
+      Alert.alert('Cancel Failed', error.message || 'Please try again.');
+    } finally {
+      setCancellingTransfer(false);
+    }
+  };
+
+  const handleCancelTransfer = () => {
+    Alert.alert(
+      'Cancel NGO Transfer?',
+      'The rescue will be returned to your active cases.',
+      [
+        { text: 'No, Keep Pending', style: 'cancel' },
+        { text: 'Yes, Cancel Transfer', style: 'destructive', onPress: performCancelTransfer },
+      ]
+    );
+  };
+
   const handleAccept = async () => {
     if (!currentUserUid || !displayReport?._id || accepting) return;
     setAccepting(true);
@@ -139,6 +190,7 @@ export default function PaidVolunteerRescueDetailsModal({
       const data = await response.json();
       if (response.status === 409) {
         Alert.alert('Already Claimed', 'This rescue was just claimed by another volunteer.');
+        reconcileReport(displayReport._id); // update card to show real current state
         return;
       }
       if (!response.ok) throw new Error(data?.message || data?.error || 'Failed to accept rescue.');
@@ -172,8 +224,9 @@ export default function PaidVolunteerRescueDetailsModal({
       onClose();
       Alert.alert('Assistance Accepted', 'You have accepted this assistance request. The volunteer has been notified.');
     } catch (error) {
-      if (error.message?.includes('already been claimed')) {
+      if (error.message?.includes('already been claimed') || error.message?.includes('no longer available') || error.message?.includes('transferred to an NGO')) {
         Alert.alert('Already Accepted', 'Another paid volunteer has already accepted this request.');
+        reconcileReport(displayReport._id); // update card to show real current state
       } else {
         Alert.alert('Unable to Accept', error.message || 'Please try again.');
       }
@@ -470,17 +523,23 @@ export default function PaidVolunteerRescueDetailsModal({
 
                       {/* Transfer to NGO — both directly assigned AND assisting */}
                       {!transferCompleted ? (
-                        <Button
-                          label={
-                            transferring ? 'Transferring…'
-                            : transferPending ? 'Transfer Pending…'
-                            : 'Transfer to NGO'
-                          }
-                          variant={transferPending ? 'secondary' : 'outline'}
-                          onPress={transferPending ? undefined : openTransferModal}
-                          disabled={isBusy || transferPending}
-                          style={styles.actionButton}
-                        />
+                        transferPending ? (
+                          <Button
+                            label={cancellingTransfer ? 'Cancelling…' : 'Cancel Transfer'}
+                            variant="secondary"
+                            onPress={handleCancelTransfer}
+                            disabled={isBusy}
+                            style={styles.actionButton}
+                          />
+                        ) : (
+                          <Button
+                            label={transferring ? 'Transferring…' : 'Transfer to NGO'}
+                            variant="outline"
+                            onPress={openTransferModal}
+                            disabled={isBusy}
+                            style={styles.actionButton}
+                          />
+                        )
                       ) : (
                         <View style={styles.transferDonePill}>
                           <Text style={styles.transferDoneText}>✅ Transferred to NGO</Text>
