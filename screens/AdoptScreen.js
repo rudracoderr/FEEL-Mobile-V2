@@ -10,6 +10,8 @@ import {
   Modal,
   ScrollView,
   RefreshControl,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, X, MapPin } from 'lucide-react-native';
@@ -17,7 +19,8 @@ import Button from '../components/ui/Button';
 import LoadingState from '../components/ui/LoadingState';
 import EmptyState from '../components/ui/EmptyState';
 import { colors, radius, spacing, typography } from '../theme';
-import { BACKEND_BASE_URL, fetchPublicWithTimeout } from '../apiClient';
+import { BACKEND_BASE_URL, fetchPublicWithTimeout, fetchWithTimeout } from '../apiClient';
+import { auth } from '../firebase';
 
 export default function AdoptScreen() {
   const navigation = useNavigation();
@@ -25,6 +28,37 @@ export default function AdoptScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAdoption, setSelectedAdoption] = useState(null);
+  const [applicationModalVisible, setApplicationModalVisible] = useState(false);
+  const [applicationForm, setApplicationForm] = useState({ reason: '', experience: '', livingSituation: '', phone: '' });
+  const [submittingApp, setSubmittingApp] = useState(false);
+
+  const handleApply = async () => {
+    if (!applicationForm.reason || !applicationForm.experience || !applicationForm.livingSituation || !applicationForm.phone) {
+      Alert.alert('Error', 'Please fill in all fields.');
+      return;
+    }
+    setSubmittingApp(true);
+    try {
+      const res = await fetchWithTimeout(`${BACKEND_BASE_URL}/api/adoptions/${selectedAdoption._id}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(applicationForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Alert.alert('Success', 'Application submitted successfully.');
+        setApplicationModalVisible(false);
+        setSelectedAdoption(null);
+        setApplicationForm({ reason: '', experience: '', livingSituation: '', phone: '' });
+      } else {
+        Alert.alert('Error', data.message || 'Failed to submit application.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error.');
+    } finally {
+      setSubmittingApp(false);
+    }
+  };
 
   const fetchAdoptions = async (isRefresh = false) => {
     try {
@@ -208,8 +242,47 @@ export default function AdoptScreen() {
                     </View>
                   </View>
                 </ScrollView>
+                <View style={styles.modalFooter}>
+                  {auth.currentUser ? (
+                    selectedAdoption.ownerUid === auth.currentUser.uid ? (
+                      <Button label="View Applications" onPress={() => { setSelectedAdoption(null); navigation.navigate('YourAdoptions'); }} />
+                    ) : (
+                      <Button label="Interested" onPress={() => setApplicationModalVisible(true)} />
+                    )
+                  ) : (
+                    <Button label="Login to Apply" onPress={() => { setSelectedAdoption(null); navigation.navigate('Login'); }} />
+                  )}
+                </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={applicationModalVisible} transparent animationType="slide" onRequestClose={() => setApplicationModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Apply to Adopt</Text>
+              <TouchableOpacity onPress={() => setApplicationModalVisible(false)} style={styles.closeButton}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <Text style={styles.detailLabel}>Why do you want to adopt {selectedAdoption?.animalName}?</Text>
+              <TextInput style={styles.input} multiline value={applicationForm.reason} onChangeText={t => setApplicationForm({...applicationForm, reason: t})} placeholder="Reason..." />
+              
+              <Text style={styles.detailLabel}>Previous pet experience?</Text>
+              <TextInput style={styles.input} multiline value={applicationForm.experience} onChangeText={t => setApplicationForm({...applicationForm, experience: t})} placeholder="Experience..." />
+              
+              <Text style={styles.detailLabel}>Living situation?</Text>
+              <TextInput style={styles.input} multiline value={applicationForm.livingSituation} onChangeText={t => setApplicationForm({...applicationForm, livingSituation: t})} placeholder="House/Apartment, etc..." />
+              
+              <Text style={styles.detailLabel}>Phone Number</Text>
+              <TextInput style={styles.input} keyboardType="phone-pad" value={applicationForm.phone} onChangeText={t => setApplicationForm({...applicationForm, phone: t})} placeholder="Phone number" />
+              
+              <Button label={submittingApp ? "Submitting..." : "Submit Application"} onPress={handleApply} disabled={submittingApp} style={{ marginTop: spacing.lg }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -345,6 +418,21 @@ const styles = StyleSheet.create({
   modalScroll: {
     padding: spacing.lg,
     paddingBottom: 60,
+  },
+  modalFooter: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+    ...typography.body,
+    color: colors.text,
   },
   modalImageScroll: {
     marginBottom: spacing.lg,

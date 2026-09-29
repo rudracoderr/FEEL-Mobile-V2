@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Bell, ChevronRight, HeartHandshake, HelpCircle, Info, Lock, UserRound, ListChecks } from 'lucide-react-native';
+import { Bell, ChevronRight, HeartHandshake, HelpCircle, Info, Lock, UserRound, ListChecks, Heart } from 'lucide-react-native';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import SectionHeader from '../ui/SectionHeader';
@@ -54,6 +54,7 @@ export default function ProfileSettings({ backendUser, navigation, onLogout }) {
         ) : null}
 
         <SettingsRow icon={UserRound} label="My Reports" onPress={() => navigation.navigate('MyReports')} />
+        <SettingsRow icon={Heart} label="Your Adoptions" onPress={() => navigation.navigate('YourAdoptions')} />
         <SettingsRow icon={Bell} label="Notifications" onPress={() => navigation.navigate('Notifications')} />
         <SettingsRow icon={Lock} label="Privacy" />
         <SettingsRow icon={HelpCircle} label="Help" />

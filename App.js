@@ -21,6 +21,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import DonationsScreen from './screens/DonationsScreen';
 import CompleteProfileScreen from './screens/CompleteProfileScreen';
 import MyReportsScreen from './screens/MyReportsScreen';
+import YourAdoptionsScreen from './screens/YourAdoptionsScreen';
 import SignupScreen from './screens/SignupScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import VolunteerApplicationScreen from './screens/VolunteerApplicationScreen';
@@ -144,6 +145,11 @@ function ProfileStack({ onLogout, currentUserProfile }) {
       <Stack.Screen
         name="MyReports"
         component={MyReportsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="YourAdoptions"
+        component={YourAdoptionsScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
