@@ -22,6 +22,7 @@ import DonationsScreen from './screens/DonationsScreen';
 import CompleteProfileScreen from './screens/CompleteProfileScreen';
 import MyReportsScreen from './screens/MyReportsScreen';
 import SignupScreen from './screens/SignupScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import VolunteerApplicationScreen from './screens/VolunteerApplicationScreen';
 import AdoptScreen from './screens/AdoptScreen';
 import RehomeScreen from './screens/RehomeScreen';
@@ -481,6 +482,18 @@ export default function App() {
                 <LoginScreen
                   onSwitchToSignup={() => navigation.replace('Signup')}
                   onLoginSuccess={() => navigation.navigate('AppTabs')}
+                  onSwitchToForgotPassword={() => navigation.navigate('ForgotPassword')}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="ForgotPassword"
+              options={{ animation: 'slide_from_right' }}
+            >
+              {({ navigation }) => (
+                <ForgotPasswordScreen
+                  onBackToLogin={() => navigation.navigate('Login')}
                 />
               )}
             </Stack.Screen>

@@ -70,6 +70,40 @@ export function normalizeLoginError(error) {
 }
 
 /**
+ * Normalizes a Firebase Auth error that occurred during a password-reset request.
+ * Returns a feedback object { type, title, message }.
+ *
+ * SECURITY: auth/user-not-found is intentionally NOT surfaced to the caller.
+ * Treat it the same as success so we do not reveal account existence.
+ */
+export function normalizeForgotPasswordError(error) {
+  const code = String(error?.code || '').toLowerCase();
+
+  switch (code) {
+    // Deliberately omitted — caller treats user-not-found as a silent success
+    // to avoid account-enumeration. Listed here only as documentation.
+    // case 'auth/user-not-found': ...
+
+    case 'auth/invalid-email':
+      return {
+        type: 'warning',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address.',
+      };
+    default: {
+      const shared = normalizeSharedAuthError(code);
+      if (shared) return shared;
+
+      return {
+        type: 'error',
+        title: 'Request Failed',
+        message: 'Unable to send the reset link right now. Please try again.',
+      };
+    }
+  }
+}
+
+/**
  * Normalizes a Firebase Auth error that occurred during account creation.
  * Returns a feedback object { type, title, message }.
  */

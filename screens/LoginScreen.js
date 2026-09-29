@@ -8,7 +8,7 @@ import { normalizeLoginError } from '../utils/authErrorHandler';
 import authStyles from '../styles/authStyles';
 
 
-export default function LoginScreen({ onSwitchToSignup, onLoginSuccess }) {
+export default function LoginScreen({ onSwitchToSignup, onLoginSuccess, onSwitchToForgotPassword }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -101,6 +101,14 @@ export default function LoginScreen({ onSwitchToSignup, onLoginSuccess }) {
         <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        onPress={onSwitchToForgotPassword}
+        disabled={loading}
+        style={styles.forgotPasswordLink}
+      >
+        <Text style={styles.switchText}>Forgot Password?</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={onSwitchToSignup} disabled={loading}>
         <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
@@ -108,4 +116,9 @@ export default function LoginScreen({ onSwitchToSignup, onLoginSuccess }) {
   );
 }
 
-const styles = authStyles;
+const styles = {
+  ...authStyles,
+  forgotPasswordLink: {
+    marginBottom: 10,
+  },
+};
