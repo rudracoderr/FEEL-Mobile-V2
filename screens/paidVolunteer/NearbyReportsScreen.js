@@ -45,6 +45,7 @@ export default function NearbyReportsScreen({ currentUserProfile }) {
   const [userLocation, setUserLocation] = useState(null); // { latitude, longitude }
 
   const horizontalScrollRef = useRef(null);
+  const [pagerHeight, setPagerHeight] = useState(0);
 
   // ── Get device location on mount ─────────────────────────────────────────
   useEffect(() => {
@@ -222,6 +223,8 @@ export default function NearbyReportsScreen({ currentUserProfile }) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={onScroll}
+        onLayout={(e) => setPagerHeight(e.nativeEvent.layout.height)}
+        style={styles.pager}
         contentContainerStyle={{ width: SCREEN_WIDTH * TABS.length }}
         scrollEventThrottle={16}
       >
@@ -233,19 +236,18 @@ export default function NearbyReportsScreen({ currentUserProfile }) {
           };
 
           return (
-            <View key={tab} style={{ width: SCREEN_WIDTH }}>
-              {list.length === 0 ? (
-                <View style={styles.emptyWrap}>
-                  <EmptyState
-                    title="All clear"
-                    message={emptyMessages[tab]}
-                  />
-                </View>
-              ) : (
+            <View key={tab} style={{ width: SCREEN_WIDTH, height: pagerHeight }}>
+              {pagerHeight > 0 && (
                 <FlatList
                   data={list}
                   keyExtractor={(item, index) => item._id || String(index)}
-                  contentContainerStyle={styles.feedContainer}
+                  contentContainerStyle={list.length === 0 ? styles.emptyContainer : styles.feedContainer}
+                  ListEmptyComponent={
+                    <EmptyState
+                      title="All clear"
+                      message={emptyMessages[tab]}
+                    />
+                  }
                   showsVerticalScrollIndicator={false}
                   refreshControl={
                     <RefreshControl
@@ -360,8 +362,14 @@ const styles = StyleSheet.create({
   tabChipTextActive: {
     color: '#FFFFFF',
   },
-  emptyWrap: {
+  pager: {
+    flex: 1,
+  },
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: spacing.lg,
+    paddingBottom: 108,
   },
   feedContainer: {
     padding: spacing.lg,

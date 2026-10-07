@@ -16,6 +16,7 @@ export const colors = {
   surface: '#FFFFFF',
   surfaceAlt: '#F3F4F6',
   dangerSoft: '#FEF2F2',
+  dangerBorder: '#FECACA',
   warningSoft: '#FFFBEB',
   successSoft: '#F0FDF4',
   primarySoft: '#FFF1EA',

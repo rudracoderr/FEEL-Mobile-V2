@@ -9,6 +9,7 @@ export default function Button({
   loading = false,
   style,
   textStyle,
+  children,
 }) {
   const isDisabled = disabled || loading;
 
@@ -29,7 +30,7 @@ export default function Button({
     >
       {loading ? (
         <ActivityIndicator color={variant === 'outline' ? colors.primary : '#FFFFFF'} />
-      ) : (
+      ) : children ?? (
         <Text
           style={[
             styles.text,

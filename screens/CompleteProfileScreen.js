@@ -12,6 +12,10 @@ import {
 import * as Location from 'expo-location';
 import { useForm, Controller } from 'react-hook-form';
 import { BACKEND_BASE_URL, fetchWithTimeout } from '../apiClient';
+import { colors, radius, spacing } from '../theme';
+
+const MIN_AGE = 1;
+const MAX_AGE = 120;
 
 async function postUserToBackend(payload) {
   const url = `${BACKEND_BASE_URL}/api/users`;
@@ -164,8 +168,8 @@ export default function CompleteProfileScreen({ route, profile, onComplete }) {
             },
             validate: value => {
               const parsedAge = Number(value);
-              if (!Number.isFinite(parsedAge) || parsedAge <= 0) {
-                return 'Please enter a valid age';
+              if (!Number.isFinite(parsedAge) || parsedAge < MIN_AGE || parsedAge > MAX_AGE) {
+                return `Age must be between ${MIN_AGE} and ${MAX_AGE}`;
               }
               return true;
             }
@@ -236,11 +240,10 @@ export default function CompleteProfileScreen({ route, profile, onComplete }) {
           onPress={handleSubmit(handleSaveProfile)}
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.buttonText}>Save Profile</Text>
-          )}
+          {loading && <ActivityIndicator color={colors.textSecondary} />}
+          <Text style={[styles.buttonText, loading && styles.buttonTextDisabled]}>
+            {loading ? 'Saving Profile...' : 'Save Profile'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -250,118 +253,123 @@ export default function CompleteProfileScreen({ route, profile, onComplete }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 24,
-    backgroundColor: '#f8fafc',
+    padding: spacing.xxl,
+    backgroundColor: colors.background,
   },
   headerCard: {
-    backgroundColor: '#0f766e',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.primaryDark,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
   },
   headerLabel: {
-    color: '#ccfbf1',
+    color: colors.primarySoft,
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   headerTitle: {
-    color: '#ffffff',
+    color: colors.card,
     fontSize: 28,
     fontWeight: '800',
     marginBottom: 10,
   },
   headerText: {
-    color: '#d1fae5',
+    color: colors.primarySoft,
     fontSize: 15,
     lineHeight: 22,
   },
   formCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   sectionLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
     marginBottom: 10,
   },
   accountText: {
-    color: '#475569',
-    marginBottom: 4,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   fieldLabel: {
-    marginTop: 16,
-    marginBottom: 8,
-    color: '#0f172a',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    color: colors.text,
     fontWeight: '600',
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: colors.critical,
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.critical,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 16,
+    marginTop: spacing.xl,
+    gap: spacing.lg,
   },
   switchTextWrap: {
     flex: 1,
   },
   switchHint: {
-    marginTop: 4,
-    color: '#64748b',
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
     fontSize: 12,
   },
   button: {
     height: 52,
-    borderRadius: 12,
-    backgroundColor: '#0ea5e9',
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xxl,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    backgroundColor: colors.border,
   },
   buttonText: {
-    color: '#ffffff',
+    color: colors.card,
     fontWeight: '700',
     fontSize: 16,
+  },
+  buttonTextDisabled: {
+    color: colors.textSecondary,
   },
   fallbackContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f8fafc',
+    padding: spacing.xxl,
+    backgroundColor: colors.background,
   },
   fallbackTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.text,
     marginBottom: 10,
   },
   fallbackText: {
     textAlign: 'center',
-    color: '#475569',
+    color: colors.textSecondary,
   },
 });

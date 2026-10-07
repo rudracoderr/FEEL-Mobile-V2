@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { RefreshCw, XCircle } from 'lucide-react-native';
+import { RefreshCw, X, XCircle } from 'lucide-react-native';
 import { colors, radius, spacing, typography } from '../../theme';
 import { HeroIcon } from './shared';
 
@@ -20,8 +20,15 @@ export default function VolunteerRejectedState({ onReapply, submitting, rejectio
         </View>
       ) : null}
       <View style={[styles.statusBadge, { backgroundColor: colors.dangerSoft }]}>
+        <X
+          size={14}
+          color={colors.critical}
+          strokeWidth={3}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
         <Text style={[styles.statusBadgeText, { color: colors.critical }]}>
-          ✕  Application Rejected
+          Application Rejected
         </Text>
       </View>
       <Text style={styles.stateNote}>
@@ -66,7 +73,7 @@ const styles = StyleSheet.create({
   reasonCard: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.dangerBorder,
     backgroundColor: colors.dangerSoft,
     borderRadius: radius.lg,
     padding: spacing.lg,
@@ -86,6 +93,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,

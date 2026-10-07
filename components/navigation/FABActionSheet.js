@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
@@ -7,9 +7,28 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
-import { HeartHandshake, Home as HomeIcon, X } from 'lucide-react-native';
+import { HeartHandshake, Home as HomeIcon, X, Camera, Sun, ZoomIn, Eye, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { colors, radius, spacing } from '../../theme';
+
+const GUIDELINES = [
+  {
+    title: 'Take a clear photo',
+    description: 'Keep the animal in focus and clearly visible.',
+    icon: Camera,
+  },
+  {
+    title: 'Use good lighting',
+    description: 'Avoid dark, blurry, or backlit photos.',
+    icon: Sun,
+  },
+  {
+    title: 'Show important details',
+    description: 'For injuries, clearly capture the affected area.',
+    icon: ZoomIn,
+  },
+];
 
 const ACTIONS = [
   {
@@ -42,6 +61,13 @@ const ACTIONS = [
 export default function FABActionSheet({ visible, onClose, onInjury, onRehome }) {
   const slideAnim = useRef(new Animated.Value(400)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const [expandedGuidelineIndex, setExpandedGuidelineIndex] = useState(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setTimeout(() => setExpandedGuidelineIndex(null), 300);
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -110,8 +136,8 @@ export default function FABActionSheet({ visible, onClose, onInjury, onRehome })
 
       {/* Sheet */}
       <Animated.View
-        style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}
-        pointerEvents="box-none"
+        style={[styles.sheet, { transform: [{ translateY: slideAnim }], maxHeight: '85%' }]}
+        pointerEvents="auto"
       >
         {/* Handle */}
         <View style={styles.handle} />
@@ -124,28 +150,84 @@ export default function FABActionSheet({ visible, onClose, onInjury, onRehome })
           </TouchableOpacity>
         </View>
 
-        {/* Action rows */}
-        <View style={styles.actionsContainer}>
-          {ACTIONS.map((action) => {
-            const IconComponent = action.icon;
-            return (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.actionRow}
-                activeOpacity={0.8}
-                onPress={() => handleAction(action.id)}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: action.iconColor + '18' }]}>
-                  <IconComponent size={24} color={action.iconColor} strokeWidth={2.2} />
+        <ScrollView
+          style={{ flexShrink: 1, width: '100%' }}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+        >
+          {/* Action rows */}
+          <View style={styles.actionsContainer}>
+            {ACTIONS.map((action) => {
+              const IconComponent = action.icon;
+              return (
+                <TouchableOpacity
+                  key={action.id}
+                  style={styles.actionRow}
+                  activeOpacity={0.8}
+                  onPress={() => handleAction(action.id)}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: action.iconColor + '18' }]}>
+                    <IconComponent size={24} color={action.iconColor} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.actionText}>
+                    <Text style={styles.actionLabel}>{action.label}</Text>
+                    <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Photo Guidelines Section */}
+          <View style={styles.guidelinesSection}>
+            <View style={styles.guidelinesSectionHeader}>
+              <View style={styles.guidelinesHeaderLeft}>
+                <Camera size={20} color={colors.primary} strokeWidth={2.2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.guidelinesTitle}>Photo Guidelines</Text>
+                  <Text style={styles.guidelinesSubtitle}>Please follow these tips when taking a photo.</Text>
                 </View>
-                <View style={styles.actionText}>
-                  <Text style={styles.actionLabel}>{action.label}</Text>
-                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+              </View>
+            </View>
+
+            <View style={styles.guidelinesContainer}>
+              {GUIDELINES.map((item, index) => {
+                const IconComponent = item.icon;
+                const isExpanded = expandedGuidelineIndex === index;
+                const isLast = index === GUIDELINES.length - 1;
+
+                return (
+                  <View key={index}>
+                    <TouchableOpacity 
+                      style={styles.guidelineItemHeader} 
+                      activeOpacity={0.7} 
+                      onPress={() => setExpandedGuidelineIndex(isExpanded ? null : index)}
+                    >
+                      <View style={styles.guidelineIconContainer}>
+                        <IconComponent size={18} color={colors.primary} strokeWidth={2} />
+                      </View>
+                      <Text style={styles.guidelineItemTitle}>{item.title}</Text>
+                      {isExpanded ? (
+                        <ChevronUp size={20} color={colors.textSecondary} />
+                      ) : (
+                        <ChevronDown size={20} color={colors.textSecondary} />
+                      )}
+                    </TouchableOpacity>
+                    
+                    {isExpanded && (
+                      <View style={styles.guidelineItemBody}>
+                        <Text style={styles.guidelineItemDesc}>{item.description}</Text>
+                      </View>
+                    )}
+                    
+                    {!isLast && <View style={styles.divider} />}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
 
         {/* Cancel */}
         <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
@@ -239,6 +321,77 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
+  guidelinesSection: {
+    marginBottom: spacing.md,
+  },
+  guidelinesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: 4,
+  },
+  guidelinesHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  guidelinesTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  guidelinesSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  guidelinesContainer: {
+    backgroundColor: colors.background,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  guidelineItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  guidelineIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guidelineItemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  guidelineItemBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingLeft: 60,
+  },
+  guidelineItemDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginLeft: 60,
   },
   cancelBtn: {
     backgroundColor: colors.surfaceAlt,
