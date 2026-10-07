@@ -11,6 +11,14 @@ import { colors, radius, spacing } from '../../theme';
  * @param {Function} onBellPress         (Future) notification handler.
  */
 export default function HomeHeroBanner({ username, onDonationsPress, onBellPress }) {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Good Morning,';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon,';
+    if (hour >= 17 && hour < 21) return 'Good Evening,';
+    return 'Good Night,';
+  };
+
   return (
     <View style={styles.heroBanner}>
       {/* Soft background swoosh */}
@@ -31,7 +39,7 @@ export default function HomeHeroBanner({ username, onDonationsPress, onBellPress
 
       {/* Left: greeting + tagline */}
       <View style={styles.heroLeft}>
-        <Text style={styles.greeting}>Good morning,</Text>
+        <Text style={styles.greeting}>{getGreeting()}</Text>
         <Text style={styles.userName}>{username} 👋</Text>
         <Text style={styles.heroTagline}>
           Every rescue brings hope.{`\n`}Let's make a difference today. 🧡

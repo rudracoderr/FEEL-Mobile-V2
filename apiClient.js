@@ -76,22 +76,57 @@ function makeSafeJsonResponse(response) {
   return response;
 }
 
-export async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  let timeoutId;
+/**
+ * Generic helper to execute a fetch call with cold-start retry logic for GET requests.
+ */
+async function executeWithColdStartRetry(options, initialTimeoutMs, fetchAction) {
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
 
-  try {
-    const headers = await buildAuthHeaders(options.headers);
-    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers,
-    });
-    return makeSafeJsonResponse(response);
-  } finally {
-    clearTimeout(timeoutId);
+  let { response, error } = await fetchAction(initialTimeoutMs);
+
+  if (error && isGet) {
+    const isTimeoutOrNetwork = error.name === 'AbortError' || error.message?.includes('Network');
+    if (isTimeoutOrNetwork) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.log("API request timed out, retrying once for possible backend cold start...");
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const retryResult = await fetchAction(25000); // 25s for cold start
+      response = retryResult.response;
+      error = retryResult.error;
+    }
   }
+
+  if (error) {
+    throw error;
+  }
+
+  return response;
+}
+
+export async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const fetchAction = async (currentTimeoutMs) => {
+    const controller = new AbortController();
+    let timeoutId;
+    try {
+      const headers = await buildAuthHeaders(options.headers);
+      timeoutId = setTimeout(() => controller.abort(), currentTimeoutMs);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers,
+      });
+      return { response, error: null };
+    } catch (error) {
+      return { response: null, error };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  const response = await executeWithColdStartRetry(options, timeoutMs, fetchAction);
+  return makeSafeJsonResponse(response);
 }
 
 /**
@@ -100,51 +135,62 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TI
  * Do NOT use this for any write or user-specific endpoint.
  */
 export async function fetchPublicWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const fetchAction = async (currentTimeoutMs) => {
+    const controller = new AbortController();
+    let timeoutId;
+    try {
+      timeoutId = setTimeout(() => controller.abort(), currentTimeoutMs);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        },
+      });
+      return { response, error: null };
+    } catch (error) {
+      return { response: null, error };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-    });
-    return makeSafeJsonResponse(response);
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const response = await executeWithColdStartRetry(options, timeoutMs, fetchAction);
+  return makeSafeJsonResponse(response);
 }
 
-
 export async function fetchJsonWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  let timeoutId;
-
-  try {
-    const headers = await buildAuthHeaders(options.headers);
-    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers,
-    });
-
-    const responseText = await response.text();
-
-    let responseData = null;
-    if (responseText) {
-      try {
-        responseData = JSON.parse(responseText);
-      } catch {
-        responseData = responseText;
-      }
+  const fetchAction = async (currentTimeoutMs) => {
+    const controller = new AbortController();
+    let timeoutId;
+    try {
+      const headers = await buildAuthHeaders(options.headers);
+      timeoutId = setTimeout(() => controller.abort(), currentTimeoutMs);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers,
+      });
+      return { response, error: null };
+    } catch (error) {
+      return { response: null, error };
+    } finally {
+      clearTimeout(timeoutId);
     }
+  };
 
-    return { response, responseText, responseData };
-  } finally {
-    clearTimeout(timeoutId);
+  const response = await executeWithColdStartRetry(options, timeoutMs, fetchAction);
+  const responseText = await response.text();
+
+  let responseData = null;
+  if (responseText) {
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = responseText;
+    }
   }
+
+  return { response, responseText, responseData };
 }
