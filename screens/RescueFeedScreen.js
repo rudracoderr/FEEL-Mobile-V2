@@ -449,6 +449,7 @@ export default function RescueFeedScreen() {
       {/* ── Paging ScrollView with per-status FlatLists ────── */}
       <ScrollView
         ref={horizontalScrollRef}
+        style={styles.pager}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -607,6 +608,9 @@ const styles = StyleSheet.create({
   feedContainer: {
     padding: spacing.lg,
     paddingBottom: 108,
+  },
+  pager: {
+    flex: 1,
   },
   emptyWrap: {
     padding: spacing.lg,

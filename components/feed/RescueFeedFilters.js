@@ -39,6 +39,11 @@ export default function RescueFeedFilters({ activeFilter, onFilterPress }) {
 
 const styles = StyleSheet.create({
   filterWrap: {
+    // RN ScrollView defaults to flexGrow: 1. Without this, when the sibling
+    // pager has short content (empty list) the chip row absorbs the free
+    // vertical space and the chips stretch tall.
+    flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
