@@ -81,6 +81,7 @@ export default function ResolveRescueModal({
             multiline
             textAlignVertical="top"
             editable={!submitting}
+            maxLength={2000}
           />
 
           {submitting && (

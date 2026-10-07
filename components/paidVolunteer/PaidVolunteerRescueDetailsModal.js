@@ -630,6 +630,7 @@ export default function PaidVolunteerRescueDetailsModal({
               multiline
               textAlignVertical="top"
               editable={!transferring}
+              maxLength={1000}
             />
 
             {transferring ? (

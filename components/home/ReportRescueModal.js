@@ -75,7 +75,11 @@ export default function ReportRescueModal({
           {/* Title */}
           <Controller
             control={control}
-            rules={{ required: 'Title is required' }}
+            rules={{
+              required: 'Title is required',
+              maxLength: { value: 200, message: 'Title must be at most 200 characters' },
+              validate: (value) => value.trim().length > 0 || 'Title is required'
+            }}
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 style={[styles.input, errors.title && styles.inputError]}
@@ -84,6 +88,7 @@ export default function ReportRescueModal({
                 value={value}
                 onBlur={onBlur}
                 onChangeText={onChange}
+                maxLength={200}
               />
             )}
             name="title"
@@ -93,7 +98,11 @@ export default function ReportRescueModal({
           {/* Description */}
           <Controller
             control={control}
-            rules={{ required: 'Description is required' }}
+            rules={{
+              required: 'Description is required',
+              maxLength: { value: 5000, message: 'Description must be at most 5000 characters' },
+              validate: (value) => value.trim().length > 0 || 'Description is required'
+            }}
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
                 style={[styles.input, styles.textArea, errors.description && styles.inputError]}
@@ -104,6 +113,7 @@ export default function ReportRescueModal({
                 onChangeText={onChange}
                 multiline
                 textAlignVertical="top"
+                maxLength={5000}
               />
             )}
             name="description"
@@ -142,18 +152,21 @@ export default function ReportRescueModal({
           {/* Landmark */}
           <Controller
             control={control}
+            rules={{ maxLength: { value: 200, message: 'Landmark must be at most 200 characters' } }}
             render={({ field: { onChange, onBlur, value } }) => (
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.reportLandmark && styles.inputError]}
                 placeholder="Nearby landmark (optional)"
                 placeholderTextColor={colors.textMuted}
                 value={value}
                 onBlur={onBlur}
                 onChangeText={onChange}
+                maxLength={200}
               />
             )}
             name="reportLandmark"
           />
+          {errors.reportLandmark && <Text style={styles.errorText}>{errors.reportLandmark.message}</Text>}
 
           {/* Severity */}
           <Text style={styles.fieldLabel}>Severity</Text>

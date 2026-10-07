@@ -29,7 +29,8 @@ export default function SignupScreen({ onSwitchToLogin, onSignupStart, onSignupS
   };
 
   const handleSignup = async () => {
-    if (!email.trim() || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       openFeedback({
         type: 'warning',
         title: 'Missing Fields',
@@ -38,11 +39,41 @@ export default function SignupScreen({ onSwitchToLogin, onSignupStart, onSignupS
       return;
     }
 
+    // Basic email format check — Firebase validates definitively on the server.
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+    if (!emailOk) {
+      openFeedback({
+        type: 'warning',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address.',
+      });
+      return;
+    }
+
+    // Firebase requires at least 6 characters.
+    if (password.length < 6) {
+      openFeedback({
+        type: 'warning',
+        title: 'Password Too Short',
+        message: 'Password must be at least 6 characters.',
+      });
+      return;
+    }
+
+    if (password.length > 128) {
+      openFeedback({
+        type: 'warning',
+        title: 'Password Too Long',
+        message: 'Password must be at most 128 characters.',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       onSignupStart?.();
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
       const user = userCredential.user;
 
       onSignupSuccess?.({
@@ -94,8 +125,10 @@ export default function SignupScreen({ onSwitchToLogin, onSignupStart, onSignupS
         placeholderTextColor="#6b7280"
         keyboardType="email-address"
         autoCapitalize="none"
+        autoCorrect={false}
         value={email}
         onChangeText={setEmail}
+        maxLength={254}
       />
 
       <TextInput
@@ -105,6 +138,7 @@ export default function SignupScreen({ onSwitchToLogin, onSignupStart, onSignupS
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        maxLength={128}
       />
 
       <TouchableOpacity
