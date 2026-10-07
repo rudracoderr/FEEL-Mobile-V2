@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { HeartHandshake, Home as HomeIcon, ChevronRight, Map } from 'lucide-react-native';
+import { HeartHandshake, Home as HomeIcon, ChevronRight } from 'lucide-react-native';
 import { colors } from '../theme';
 
 export default function ReportsHubScreen() {
@@ -34,21 +34,6 @@ export default function ReportsHubScreen() {
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>🚑 Injury Reports</Text>
               <Text style={styles.cardDescription}>Rescue nearby cases and help injured animals.</Text>
-            </View>
-            <ChevronRight size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.card}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('RescueMap')}
-          >
-            <View style={styles.iconContainer}>
-              <Map size={32} color={colors.primary} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>🗺️ Rescue Map</Text>
-              <Text style={styles.cardDescription}>See nearby rescues plotted on a live map.</Text>
             </View>
             <ChevronRight size={24} color={colors.textSecondary} />
           </TouchableOpacity>
