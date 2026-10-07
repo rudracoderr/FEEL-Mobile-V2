@@ -25,6 +25,7 @@ import RadiusActionSheet from '../components/feed/RadiusActionSheet';
 import { normalizeApiError } from '../utils/apiErrorHandler';
 import { calculateDistanceKm, formatDistanceLabel } from '../utils/locationHelpers';
 import { getTimeAgo } from '../utils/dateHelpers';
+import { isOwnReport } from '../utils/reportHelpers';
 import { colors, radius, spacing, typography } from '../theme';
 
 const FILTERS = ['pending', 'accepted', 'resolved'];
@@ -254,11 +255,11 @@ export default function RescueFeedScreen() {
       });
       const data = await response.json();
 
-      if (response.status === 409 || data?.success === false) {
+      if (response.status === 409 || response.status === 403 || data?.success === false) {
         openStatusModal({
           type: 'warning',
           title: 'Unable to accept',
-          message: rescueAlreadyClaimedMessage,
+          message: data?.message || rescueAlreadyClaimedMessage,
         });
         // ponytail: reconcile stale card — re-fetch the single report and
         // merge into every tab's list, same as the success path below.
@@ -517,7 +518,8 @@ export default function RescueFeedScreen() {
                         currentUserProfile?.volunteerStatus !== 'suspended' &&
                         (report.status || 'pending') === 'pending' &&
                         typeof report.distanceKm === 'number' &&
-                        report.distanceKm <= 10
+                        report.distanceKm <= 10 &&
+                        !isOwnReport(report, currentFirebaseUser?.uid)
                       }
                       onAccept={() => handleAcceptReport(report)}
                       onPress={() => setSelectedReport(report)}

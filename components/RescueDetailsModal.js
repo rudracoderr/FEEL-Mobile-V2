@@ -23,6 +23,7 @@ import { uploadResolutionImage } from '../utils/cloudinaryHelper';
 import { formatDateLabel } from '../utils/dateHelpers';
 import { getPhoneFromContact } from '../utils/contactHelpers';
 import { colors, radius, spacing, typography } from '../theme';
+import { getResolverLabel } from '../utils/reportHelpers';
 
 export default function RescueDetailsModal({
   visible,
@@ -259,9 +260,9 @@ export default function RescueDetailsModal({
                     <CheckCircle size={18} color={colors.success} strokeWidth={2.5} />
                     <Text style={styles.resolutionHeading}>Resolved</Text>
                   </View>
-                  <Text style={styles.resolutionLabel}>Admin Remark</Text>
+                  <Text style={styles.resolutionLabel}>{getResolverLabel(displayReport)}</Text>
                   <Text style={styles.resolutionBody}>
-                    {displayReport.resolutionRemark || 'No admin remark provided.'}
+                    {displayReport.resolutionRemark || 'No remarks provided.'}
                   </Text>
                   <Text style={styles.resolutionLabel}>Resolved At</Text>
                   <Text style={styles.resolutionDate}>{formatDateLabel(displayReport.resolvedAt)}</Text>
