@@ -18,7 +18,8 @@ import VolunteerSection from './rescue/VolunteerSection';
 import ReporterSection from './rescue/ReporterSection';
 import ReportAbuseModal from './rescue/ReportAbuseModal';
 import ResolveRescueModal from './rescue/ResolveRescueModal';
-import { BACKEND_BASE_URL, fetchPublicWithTimeout } from '../apiClient';
+import StatusModal from './ui/StatusModal';
+import { BACKEND_BASE_URL, fetchPublicWithTimeout, fetchWithTimeout } from '../apiClient';
 import { uploadResolutionImage } from '../utils/cloudinaryHelper';
 import { formatDateLabel } from '../utils/dateHelpers';
 import { getPhoneFromContact } from '../utils/contactHelpers';
@@ -71,6 +72,7 @@ export default function RescueDetailsModal({
 
   // ── Abuse report state & submission ──────────────────────────────────────
   const [isAbuseModalVisible, setIsAbuseModalVisible] = useState(false);
+  const [isAbuseSuccessVisible, setIsAbuseSuccessVisible] = useState(false);
   const [selectedReason, setSelectedReason] = useState(null);
   const [submittingAbuse, setSubmittingAbuse] = useState(false);
 
@@ -98,17 +100,9 @@ export default function RescueDetailsModal({
         throw new Error(data?.message || 'Failed to submit abuse report.');
       }
 
-      Alert.alert(
-        'Thank you',
-        'This report has been flagged for review.',
-        [{
-          text: 'OK',
-          onPress: () => {
-            setIsAbuseModalVisible(false);
-            setSelectedReason(null);
-          },
-        }]
-      );
+      setIsAbuseModalVisible(false);
+      setSelectedReason(null);
+      setIsAbuseSuccessVisible(true);
     } catch (err) {
       console.error('Failed to submit abuse report:', err);
       Alert.alert('Error', err.message || 'Failed to submit abuse report.');
@@ -370,6 +364,18 @@ export default function RescueDetailsModal({
         onNoteChange={setResolutionNote}
         onSubmit={handleSubmitResolution}
         onClose={closeResolutionForm}
+      />
+
+      {/* Abuse Report Success Modal */}
+      <StatusModal
+        visible={isAbuseSuccessVisible}
+        type="success"
+        title="Thank you"
+        message="This report has been flagged for review."
+        primaryButton={{
+          label: 'OK',
+          onPress: () => setIsAbuseSuccessVisible(false),
+        }}
       />
     </Modal>
   );

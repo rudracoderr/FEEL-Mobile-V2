@@ -23,6 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -44,6 +45,12 @@
       "eas": {
         "projectId": "ed6b193d-05e5-43e9-b978-3d57ad8d7fd8"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ed6b193d-05e5-43e9-b978-3d57ad8d7fd8"
     }
   }
 }

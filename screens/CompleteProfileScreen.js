@@ -98,13 +98,8 @@ export default function CompleteProfileScreen({ route, profile, onComplete }) {
       };
 
       const data = await postUserToBackend(payload);
-
-      Alert.alert('Success', 'Profile completed successfully.', [
-        {
-          text: 'Go to Home',
-          onPress: () => onComplete?.(data),
-        },
-      ]);
+      
+      onComplete?.(data);
     } catch (error) {
       console.error('Complete profile save failed:', error);
       Alert.alert('Save failed', error.message);
